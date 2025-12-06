@@ -1,10 +1,3 @@
 # WSTest
 this is a tool to test web security level
 
-1 Download webTest.sh
-2 chmod +x webTest.sh
-3 ./webTest.sh
-
-#for Linux 
-mv webTest.sh /usr/bin/
-#then you can use "webTest.sh" by command line.
