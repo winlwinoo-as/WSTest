@@ -2,6 +2,12 @@
 2 chmod +x webTest.sh
 3 ./webTest.sh
 
+#for webAudit.py
+1. Install Python libraries
+"  pip install requests dnspython  "
+2. chmod +x webAudit.py
+
+
 #for Linux 
 mv webTest.sh /usr/bin/
 #then you can use "webTest.sh" by command line.
