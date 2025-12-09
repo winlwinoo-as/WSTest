@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Web Audit Tool - Cross-platform (Windows/Linux)
+Web Audit Tool - Cross-platform (Windows/Linux/Mac)
 Requirements: 
     pip install requests dnspython beautifulsoup4
 Optional tools: nmap, nikto, whatweb, wafw00f
@@ -13,8 +13,21 @@ import dns.resolver
 import platform
 import shutil
 import sys
+import os
 from urllib.parse import urljoin, urlparse
-from bs4 import BeautifulSoup
+
+# Check and install beautifulsoup4 if needed
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    print(" beautifulsoup4 not found. Installing...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "beautifulsoup4"])
+        from bs4 import BeautifulSoup
+        print(" beautifulsoup4 installed successfully!")
+    except Exception as e:
+        print(f" Failed to install beautifulsoup4: {e}")
+        sys.exit(1)
 
 # Tool availability cache
 tool_status = {}
@@ -44,33 +57,72 @@ def get_install_command(tool_name):
     """Get the installation command based on OS and tool"""
     install_commands = {
         "linux": {
-            "nmap": "sudo apt-get install nmap",
-            "nikto": "sudo apt-get install nikto",
-            "whatweb": "sudo apt-get install whatweb",
-            "wafw00f": "pip3 install wafw00f",
+            "nmap": ["sudo", "apt-get", "install", "-y", "nmap"],
+            "nikto": ["sudo", "apt-get", "install", "-y", "nikto"],
+            "whatweb": ["sudo", "apt-get", "install", "-y", "whatweb"],
+            "wafw00f": [sys.executable, "-m", "pip", "install", "wafw00f"],
         },
         "darwin": {
-            "nmap": "brew install nmap",
-            "nikto": "brew install nikto",
-            "whatweb": "brew install whatweb",
-            "wafw00f": "pip3 install wafw00f",
+            "nmap": ["brew", "install", "nmap"],
+            "nikto": ["brew", "install", "nikto"],
+            "whatweb": ["brew", "install", "whatweb"],
+            "wafw00f": [sys.executable, "-m", "pip", "install", "wafw00f"],
         },
         "windows": {
-            "nmap": "Download from https://nmap.org/download.html and install",
-            "nikto": "Install via Git: git clone https://github.com/sullo/nikto",
-            "whatweb": "Install via Git: git clone https://github.com/urbanadventurer/WhatWeb",
-            "wafw00f": "pip install wafw00f",
+            "nmap": None,  # Binary installation required
+            "nikto": None,  # Binary installation required
+            "whatweb": None,  # Binary installation required
+            "wafw00f": [sys.executable, "-m", "pip", "install", "wafw00f"],
         }
     }
     
     os_type = "linux" if is_linux() else "darwin" if is_mac() else "windows" if is_windows() else "unknown"
-    return install_commands.get(os_type, {}).get(tool_name, f"Please install {tool_name} manually")
+    return install_commands.get(os_type, {}).get(tool_name, None)
+
+def install_tool_automatically(tool_name):
+    """Attempt to install a tool automatically"""
+    install_cmd = get_install_command(tool_name)
+    
+    if install_cmd is None:
+        # Binary installation required (Windows tools like nmap)
+        if is_windows():
+            print(f"\n  {tool_name} requires manual installation on Windows:")
+            if tool_name == "nmap":
+                print("   Download from: https://nmap.org/download.html")
+            elif tool_name == "nikto":
+                print("   Install via Git: git clone https://github.com/sullo/nikto")
+            elif tool_name == "whatweb":
+                print("   Install via Git: git clone https://github.com/urbanadventurer/WhatWeb")
+            print(f"   Please install {tool_name} and add it to your PATH, then run the script again.")
+        return False
+    
+    try:
+        print(f" Installing {tool_name}...")
+        
+        # For Linux commands requiring sudo, we need special handling
+        if is_linux() and "sudo" in install_cmd:
+            print(f"   Running: {' '.join(install_cmd)}")
+            result = subprocess.run(install_cmd, capture_output=True, text=True)
+        else:
+            result = subprocess.run(install_cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f" {tool_name} installed successfully!")
+            return True
+        else:
+            print(f" Installation failed for {tool_name}")
+            if result.stderr:
+                print(f"   Error: {result.stderr[:200]}")
+            return False
+            
+    except Exception as e:
+        print(f" Failed to install {tool_name}: {e}")
+        return False
 
 def prompt_install_tool(tool_name):
     """Prompt user to install a tool if not found"""
     global tool_status
     
-
     if tool_name in tool_status:
         return tool_status[tool_name]
     
@@ -80,17 +132,22 @@ def prompt_install_tool(tool_name):
         return True
     
     # Tool not found, ask user
-    print(f"\n⚠️  Tool '{tool_name}' is not installed.")
-    install_cmd = get_install_command(tool_name)
-    print(f"   Installation: {install_cmd}")
+    print(f"\n  Tool '{tool_name}' is not installed.")
     
     while True:
         response = input(f"   Do you want to install {tool_name} now? (Yes/No): ").strip().lower()
         if response in ['yes', 'y']:
-            print(f"   Please install {tool_name} manually and run the script again.")
-            print(f"   Command: {install_cmd}")
-            tool_status[tool_name] = False
-            return False
+            # Attempt automatic installation
+            success = install_tool_automatically(tool_name)
+            
+            # Verify installation
+            if success and check_tool_installed(tool_name):
+                tool_status[tool_name] = True
+                return True
+            else:
+                tool_status[tool_name] = False
+                return False
+                
         elif response in ['no', 'n']:
             print(f"   Skipping {tool_name}...")
             tool_status[tool_name] = False
@@ -172,7 +229,7 @@ security_headers = ["Strict-Transport-Security", "X-Frame-Options",
 try:
     r = requests.get(target, timeout=10)
     for h in security_headers:
-        print(f"{h}: {r.headers.get(h, '❌ Missing')}")
+        print(f"{h}: {r.headers.get(h, ' Missing')}")
 except:
     print("Cannot fetch security headers.")
 
@@ -215,7 +272,7 @@ except Exception as e:
 print_header("6. Spider/Web Crawler")
 try:
     urls = spider_website(target, max_pages=20)
-    print(f"\n✅ Discovered {len(urls)} URLs:")
+    print(f"\n Discovered {len(urls)} URLs:")
     for url in urls[:30]:  # Show first 30 URLs
         print(f"   - {url}")
     if len(urls) > 30:
