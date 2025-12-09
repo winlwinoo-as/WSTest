@@ -4,7 +4,10 @@
 
 #for webAudit.py
 1. Install Python libraries (if you haven't installed"
-"  pip install requests dnspython  "
+"  pip install requests dnspython
+        OR
+  pip3 install requests dnspython 
+"
 2. chmod +x webAudit.py
 
 
