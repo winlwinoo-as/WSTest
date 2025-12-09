@@ -118,14 +118,23 @@ def install_tool_automatically(tool_name):
         return False
     
     try:
+        # Check if Homebrew is available on Mac
+        if is_mac() and install_cmd[0] == "brew":
+            if not check_tool_installed("brew"):
+                print(f"[!] Homebrew is not installed on this system.")
+                print(f"   {tool_name} requires Homebrew for automatic installation.")
+                print(f"   You can install Homebrew from: https://brew.sh")
+                print(f"   Or install {tool_name} manually.")
+                return False
+        
         print(f"[*] Installing {tool_name}...")
+        print(f"   Running: {' '.join(install_cmd)}")
         
         # For Linux commands requiring sudo, we need special handling
         if is_linux() and "sudo" in install_cmd:
-            print(f"   Running: {' '.join(install_cmd)}")
             result = subprocess.run(install_cmd, capture_output=True, text=True)
         else:
-            result = subprocess.run(install_cmd, capture_output=True, text=True)
+            result = subprocess.run(install_cmd, capture_output=True, text=True, timeout=60)
         
         if result.returncode == 0:
             print(f"[+] {tool_name} installed successfully!")
@@ -136,6 +145,9 @@ def install_tool_automatically(tool_name):
                 print(f"   Error: {result.stderr[:200]}")
             return False
             
+    except subprocess.TimeoutExpired:
+        print(f"[!] Installation of {tool_name} timed out")
+        return False
     except Exception as e:
         print(f"[!] Failed to install {tool_name}: {e}")
         return False
@@ -256,13 +268,14 @@ def prompt_install_tool(tool_name):
     
     # Tool not found, ask user
     print(f"\n[WARNING] Tool '{tool_name}' is not installed.")
+    print(f"   This tool is optional. The audit will continue without it.")
     
     while True:
-        response = input(f"   Do you want to install {tool_name} now? (Yes/No): ").strip().lower()
+        response = input(f"   Do you want to try installing {tool_name}? (yes/no/skip-all): ").strip().lower()
         if response in ['yes', 'y']:
             success = install_tool_automatically(tool_name)
             
-           
+            # Re-check installation
             if success:
                 tool_status[tool_name] = True
                 # Verify if tool is now in PATH
@@ -277,8 +290,15 @@ def prompt_install_tool(tool_name):
             print(f"   Skipping {tool_name}...")
             tool_status[tool_name] = False
             return False
+        elif response in ['skip-all', 'skip', 's']:
+            print(f"   Skipping all remaining optional tool installations...")
+            tool_status[tool_name] = False
+            # Mark all tools as skipped to avoid future prompts
+            for tool in ['nmap', 'nikto', 'whatweb', 'wafw00f']:
+                tool_status[tool] = False
+            return False
         else:
-            print("   Please enter 'Yes' or 'No'")
+            print("   Please enter 'yes', 'no', or 'skip-all'")
 
 def spider_website(url, max_pages=50):
     """Spider/crawl a website using available tools"""
