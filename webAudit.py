@@ -5,11 +5,9 @@ Requirements:
     pip install requests dnspython beautifulsoup4
 Optional tools: nmap, nikto, whatweb, wafw00f
 """
-import requests
 import ssl
 import socket
 import subprocess
-import dns.resolver
 import platform
 import shutil
 import sys
@@ -20,7 +18,33 @@ import warnings
 # Suppress SSL warnings for spider
 warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
-# Check and install beautifulsoup4 if needed
+
+try:
+    import requests
+except ImportError:
+    print("[*] requests module not found. Installing...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+        import requests
+        print("[+] requests installed successfully!")
+    except Exception as e:
+        print(f"[!] Failed to install requests: {e}")
+        print("[!] Please run: pip install requests")
+        sys.exit(1)
+
+try:
+    import dns.resolver
+except ImportError:
+    print("[*] dnspython module not found. Installing...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "dnspython"])
+        import dns.resolver
+        print("[+] dnspython installed successfully!")
+    except Exception as e:
+        print(f"[!] Failed to install dnspython: {e}")
+        print("[!] Please run: pip install dnspython")
+        sys.exit(1)
+
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -31,6 +55,7 @@ except ImportError:
         print("[+] beautifulsoup4 installed successfully!")
     except Exception as e:
         print(f"[!] Failed to install beautifulsoup4: {e}")
+        print("[!] Please run: pip install beautifulsoup4")
         sys.exit(1)
 
 
@@ -130,7 +155,7 @@ def install_windows_tool(tool_name):
                     print("[+] nmap installed successfully via Chocolatey!")
                     return True
             
-            # Try winget
+            
             if shutil.which("winget"):
                 print("   Using winget to install nmap...")
                 result = subprocess.run(["winget", "install", "--id=Insecure.Nmap", "-e", "--silent"], 
@@ -235,11 +260,9 @@ def prompt_install_tool(tool_name):
     while True:
         response = input(f"   Do you want to install {tool_name} now? (Yes/No): ").strip().lower()
         if response in ['yes', 'y']:
-            # Attempt automatic installation
             success = install_tool_automatically(tool_name)
             
-            # On Windows, some tools might be installed but not in PATH
-            # Trust the installation function's return value
+           
             if success:
                 tool_status[tool_name] = True
                 # Verify if tool is now in PATH
@@ -262,7 +285,7 @@ def spider_website(url, max_pages=50):
     print(f"[*] Starting spider crawl...")
     discovered_urls = []
     
-    # Ensure URL has a scheme
+  
     if not url.startswith(('http://', 'https://')):
         url = f"https://{url}"
     
@@ -291,7 +314,7 @@ def spider_website(url, max_pages=50):
         except Exception as e:
             print(f"   [!] curl check failed: {str(e)[:50]}")
     
-    # Method 2: wget --spider (Simple check)
+    
     if check_tool_installed("wget"):
         print("   [*] Running wget spider check...")
         try:
@@ -313,7 +336,7 @@ def spider_website(url, max_pages=50):
         print("   [*] Running wget recursive spider...")
         try:
             log_file = "spider.log"
-            # Use exact command: wget --spider -r -nd -nv https://example.com -o spider.log
+           
             result = subprocess.run(
                 ["wget", "--spider", "-r", "-nd", "-nv", url, "-o", log_file],
                 capture_output=True,
@@ -395,7 +418,7 @@ def spider_website(url, max_pages=50):
     return discovered_urls if discovered_urls else [url]
 
 # -----------------------------
-# Code Start Here
+# user inter start here.
 # -----------------------------
 print("==========================================")
 print("        Web Audit tool by WinLwin Oo")
@@ -491,7 +514,7 @@ if prompt_install_tool("whatweb"):
 else:
     print("Skipping WhatWeb scan.")
 
-# WAFW00F (external)
+
 print_header("8. WAF Detection (wafw00f)")
 if prompt_install_tool("wafw00f"):
     try:
@@ -501,7 +524,7 @@ if prompt_install_tool("wafw00f"):
 else:
     print("Skipping WAFW00F scan.")
 
-# Nikto (external)
+
 print_header("9. Nikto Scan")
 if prompt_install_tool("nikto"):
     try:
@@ -523,7 +546,7 @@ if prompt_install_tool("nmap"):
 else:
     print("Skipping Nmap scan.")
 
-# Bot Defense Test
+
 print_header("11. Bot Defense (SQLMAP User-Agent)")
 try:
     r = requests.get(target, headers={"User-Agent": "sqlmap"}, timeout=10)
